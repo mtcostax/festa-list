@@ -420,9 +420,9 @@
       try {
         const constraints = {
           video: {
-            facingMode: { ideal: 'environment' },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
+            facingMode: "environment",
+            
+            
           }
         };
         videoStream = await navigator.mediaDevices.getUserMedia(constraints);
