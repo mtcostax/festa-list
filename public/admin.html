@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel Admin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #7c3aed;
+      --primary-light: #8b5cf6;
+      --accent: #f59e0b;
+      --bg: #0f0f1a;
+      --surface: #1a1a2e;
+      --surface2: #222240;
+      --surface3: #2a2a4a;
+      --text: #f1f1f8;
+      --text-muted: #9ca3af;
+      --border: #2d2d50;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --radius: 14px;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* LOGIN */
+    #login-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 40px 32px;
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+    }
+    .login-card .icon { font-size: 52px; margin-bottom: 16px; }
+    .login-card h1 { font-size: 24px; font-weight: 800; margin-bottom: 6px; }
+    .login-card p { color: var(--text-muted); font-size: 14px; margin-bottom: 28px; }
+    .login-card input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 13px 16px;
+      font-size: 16px;
+      color: var(--text);
+      outline: none;
+      text-align: center;
+      letter-spacing: 4px;
+      margin-bottom: 14px;
+    }
+    .login-card input:focus { border-color: var(--primary); }
+    .btn-login {
+      width: 100%;
+      padding: 14px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .login-error { margin-top: 12px; color: #fca5a5; font-size: 13px; display: none; }
+
+    /* DASHBOARD */
+    #dashboard { display: none; }
+
+    /* Sidebar + Main */
+    .layout { display: flex; min-height: 100vh; }
+
+    .sidebar {
+      width: 220px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .sidebar-brand {
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-brand h2 { font-size: 15px; font-weight: 700; }
+    .sidebar-brand p { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .sidebar-nav { padding: 12px 8px; flex: 1; }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-muted);
+      transition: all .15s;
+    }
+    .nav-item:hover { background: var(--surface2); color: var(--text); }
+    .nav-item.active { background: rgba(124,58,237,.2); color: #c4b5fd; font-weight: 600; }
+    .sidebar-footer {
+      padding: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .btn-logout-sidebar {
+      width: 100%;
+      padding: 9px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .btn-logout-sidebar:hover { border-color: var(--error); color: #fca5a5; }
+
+    /* Main content */
+    .main { flex: 1; overflow: auto; }
+    .main-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .main-header h1 { font-size: 20px; font-weight: 700; }
+    .header-actions { display: flex; gap: 10px; }
+
+    .btn {
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: opacity .15s;
+    }
+    .btn:hover { opacity: .85; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-danger { background: transparent; border: 1px solid rgba(239,68,68,.3); color: #fca5a5; font-size: 12px; padding: 5px 10px; }
+    .btn-sm { padding: 5px 12px; font-size: 12px; }
+
+    .content { padding: 28px; }
+
+    /* TABS */
+    .tab { display: none; }
+    .tab.active { display: block; }
+
+    /* STAT CARDS */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+    .stat-value { font-size: 32px; font-weight: 800; margin-bottom: 4px; }
+    .stat-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+    .stat-entered .stat-value { color: var(--success); }
+    .stat-paid .stat-value { color: var(--primary-light); }
+    .stat-pending .stat-value { color: var(--warning); }
+    .stat-total .stat-value { color: var(--text); }
+
+    /* TABLE */
+    .table-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .table-toolbar {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .search-input {
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 14px;
+      color: var(--text);
+      outline: none;
+      width: 220px;
+    }
+    .search-input:focus { border-color: var(--primary); }
+
+    .filter-tabs { display: flex; gap: 4px; }
+    .filter-tab {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+    }
+    .filter-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+    .table-wrapper { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 600px; }
+    th {
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      font-weight: 700;
+      background: var(--surface2);
+    }
+    td {
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,.02); }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 100px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .status-paid { background: rgba(16,185,129,.15); color: #6ee7b7; }
+    .status-entered { background: rgba(124,58,237,.2); color: #c4b5fd; }
+    .status-pending { background: rgba(245,158,11,.12); color: #fcd34d; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; }
+    .dot-paid { background: #10b981; }
+    .dot-entered { background: #8b5cf6; }
+    .dot-pending { background: #f59e0b; }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px;
+      color: var(--text-muted);
+    }
+    .empty-state .e-icon { font-size: 40px; margin-bottom: 12px; }
+
+    /* CONFIG TAB */
+    .config-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      max-width: 560px;
+    }
+    .config-card h2 { font-size: 17px; font-weight: 700; margin-bottom: 20px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-group { margin-bottom: 18px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 600; color: #d1d5db; margin-bottom: 8px; text-transform: uppercase; letter-spacing: .5px; }
+    .form-group input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 11px 14px;
+      font-size: 14px;
+      color: var(--text);
+      outline: none;
+    }
+    .form-group input:focus { border-color: var(--primary); }
+    .save-msg { margin-top: 12px; font-size: 13px; color: #6ee7b7; display: none; }
+
+    /* RESPONSIVE */
+    @media (max-width: 700px) {
+      .sidebar { display: none; }
+      .main-header { padding: 14px 16px; }
+      .content { padding: 16px; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .table-toolbar { flex-direction: column; align-items: flex-start; }
+      .search-input { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <div id="login-screen">
+    <div class="login-card">
+      <div class="icon">🎛️</div>
+      <h1>Painel Admin</h1>
+      <p>Digite a senha de administrador para acessar.</p>
+      <input type="password" id="pwd-input" placeholder="••••••••" />
+      <button class="btn-login" onclick="doLogin()">Entrar</button>
+      <div class="login-error" id="login-error">Senha incorreta.</div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard">
+    <div class="layout">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <h2>🎉 Admin</h2>
+          <p id="sb-event-name">Carregando…</p>
+        </div>
+        <nav class="sidebar-nav">
+          <div class="nav-item active" onclick="switchTab('guests', this)">
+            <span>👥</span> Convidados
+          </div>
+          <div class="nav-item" onclick="switchTab('config', this)">
+            <span>⚙️</span> Configurações
+          </div>
+          <div class="nav-item" onclick="window.open('/portaria.html', '_blank')">
+            <span>🚪</span> Portaria
+          </div>
+          <div class="nav-item" onclick="window.open('/', '_blank')">
+            <span>🔗</span> Link do evento
+          </div>
+        </nav>
+        <div class="sidebar-footer">
+          <button class="btn-logout-sidebar" onclick="logout()">Sair da conta</button>
+        </div>
+      </aside>
+
+      <!-- Main -->
+      <div class="main">
+        <div class="main-header">
+          <h1 id="page-title">Convidados</h1>
+          <div class="header-actions">
+            <button class="btn btn-outline" onclick="loadGuests()">🔄 Atualizar</button>
+            <button class="btn btn-primary" onclick="exportCSV()">⬇️ Exportar CSV</button>
+          </div>
+        </div>
+
+        <div class="content">
+          <!-- TAB: CONVIDADOS -->
+          <div class="tab active" id="tab-guests">
+            <!-- Stats -->
+            <div class="stats-grid">
+              <div class="stat-card stat-total">
+                <div class="stat-value" id="stat-total">—</div>
+                <div class="stat-label">Total inscrito</div>
+              </div>
+              <div class="stat-card stat-paid">
+                <div class="stat-value" id="stat-paid">—</div>
+                <div class="stat-label">Pagos</div>
+              </div>
+              <div class="stat-card stat-entered">
+                <div class="stat-value" id="stat-entered">—</div>
+                <div class="stat-label">Entraram</div>
+              </div>
+              <div class="stat-card stat-pending">
+                <div class="stat-value" id="stat-pending">—</div>
+                <div class="stat-label">Pendentes</div>
+              </div>
+            </div>
+
+            <!-- Tabela -->
+            <div class="table-card">
+              <div class="table-toolbar">
+                <input class="search-input" id="search-input" placeholder="🔍  Buscar por nome ou CPF…" oninput="renderTable()" />
+                <div class="filter-tabs">
+                  <button class="filter-tab active" data-filter="all" onclick="setFilter('all', this)">Todos</button>
+                  <button class="filter-tab" data-filter="paid" onclick="setFilter('paid', this)">Pagos</button>
+                  <button class="filter-tab" data-filter="entered" onclick="setFilter('entered', this)">Entraram</button>
+                  <button class="filter-tab" data-filter="pending" onclick="setFilter('pending', this)">Pendentes</button>
+                </div>
+              </div>
+              <div class="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Nome</th>
+                      <th>CPF</th>
+                      <th>RG</th>
+                      <th>Status</th>
+                      <th>Inscrito em</th>
+                      <th>Pago em</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="guests-tbody"></tbody>
+                </table>
+              </div>
+              <div class="empty-state" id="empty-state" style="display:none;">
+                <div class="e-icon">🙁</div>
+                Nenhum convidado encontrado.
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB: CONFIG -->
+          <div class="tab" id="tab-config">
+            <div class="config-card">
+              <h2>⚙️ Configurações do Evento</h2>
+              <div class="form-row">
+                <div class="form-group" style="grid-column:1/-1">
+                  <label>Nome do evento</label>
+                  <input type="text" id="cfg-nome" />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Data</label>
+                  <input type="date" id="cfg-data" />
+                </div>
+                <div class="form-group">
+                  <label>Preço (R$)</label>
+                  <input type="number" id="cfg-preco" min="0" step="0.01" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Local</label>
+                <input type="text" id="cfg-local" placeholder="Nome do local, Cidade - UF" />
+              </div>
+              <div class="form-group">
+                <label>Nova senha admin (deixe em branco para manter)</label>
+                <input type="password" id="cfg-pwd" placeholder="••••••••" />
+              </div>
+              <button class="btn btn-primary" onclick="saveConfig()">Salvar configurações</button>
+              <div class="save-msg" id="save-msg">✅ Configurações salvas!</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let adminPwd = '';
+    let allGuests = [];
+    let currentFilter = 'all';
+
+    // ---- LOGIN ----
+    async function doLogin() {
+      const pwd = document.getElementById('pwd-input').value;
+      if (!pwd) return;
+      try {
+        const r = await fetch(`/api/admin/guests?password=${encodeURIComponent(pwd)}`);
+        if (!r.ok) {
+          document.getElementById('login-error').style.display = 'block';
+          return;
+        }
+        adminPwd = pwd;
+        const data = await r.json();
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+        applyData(data);
+        loadConfig(data.event);
+        setInterval(loadGuests, 30000);
+      } catch {
+        document.getElementById('login-error').style.display = 'block';
+      }
+    }
+
+    document.getElementById('pwd-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') doLogin();
+    });
+
+    function logout() {
+      adminPwd = '';
+      document.getElementById('dashboard').style.display = 'none';
+      document.getElementById('login-screen').style.display = 'flex';
+      document.getElementById('pwd-input').value = '';
+    }
+
+    // ---- TABS ----
+    function switchTab(name, el) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.getElementById(`tab-${name}`).classList.add('active');
+      el.classList.add('active');
+      document.getElementById('page-title').textContent = el.textContent.trim().replace(/^./, '').trim();
+    }
+
+    // ---- GUESTS ----
+    async function loadGuests() {
+      try {
+        const r = await fetch(`/api/admin/guests?password=${encodeURIComponent(adminPwd)}`);
+        if (!r.ok) return;
+        const data = await r.json();
+        applyData(data);
+      } catch {}
+    }
+
+    function applyData(data) {
+      allGuests = data.guests || [];
+      const stats = data.stats || {};
+      document.getElementById('stat-total').textContent = stats.total ?? 0;
+      document.getElementById('stat-paid').textContent = stats.paid ?? 0;
+      document.getElementById('stat-entered').textContent = stats.entered ?? 0;
+      document.getElementById('stat-pending').textContent = stats.pending ?? 0;
+      if (data.event) {
+        document.getElementById('sb-event-name').textContent = data.event.nome;
+      }
+      renderTable();
+    }
+
+    function setFilter(f, el) {
+      currentFilter = f;
+      document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+      renderTable();
+    }
+
+    function renderTable() {
+      const search = document.getElementById('search-input').value.toLowerCase();
+      let rows = allGuests.filter(g => {
+        const matchFilter = currentFilter === 'all' || g.status === currentFilter;
+        const matchSearch = !search || g.nome.toLowerCase().includes(search) || g.cpf.includes(search);
+        return matchFilter && matchSearch;
+      });
+
+      const tbody = document.getElementById('guests-tbody');
+      const empty = document.getElementById('empty-state');
+
+      if (rows.length === 0) {
+        tbody.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+
+      const statusLabel = { paid: 'Pago', entered: 'Entrou', pending: 'Pendente' };
+      const statusClass = { paid: 'status-paid', entered: 'status-entered', pending: 'status-pending' };
+      const dotClass = { paid: 'dot-paid', entered: 'dot-entered', pending: 'dot-pending' };
+
+      tbody.innerHTML = rows.map((g, i) => `
+        <tr>
+          <td style="color:var(--text-muted);font-size:12px;">${g.id}</td>
+          <td><strong>${g.nome}</strong></td>
+          <td style="font-family:monospace;font-size:13px;">${formatCPF(g.cpf)}</td>
+          <td style="font-size:13px;">${g.rg}</td>
+          <td>
+            <span class="status-pill ${statusClass[g.status] || ''}">
+              <span class="dot ${dotClass[g.status] || ''}"></span>
+              ${statusLabel[g.status] || g.status}
+            </span>
+          </td>
+          <td style="font-size:12px;color:var(--text-muted);">${fmtDate(g.created_at)}</td>
+          <td style="font-size:12px;color:var(--text-muted);">${g.paid_at ? fmtDate(g.paid_at) : '—'}</td>
+          <td>
+            <div style="display:flex;gap:6px;">
+              ${g.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="confirmPayment(${g.id})">✓ Confirmar</button>` : ''}
+              <button class="btn btn-danger" onclick="deleteGuest(${g.id}, '${g.nome.replace(/'/g, "\\'")}')">🗑</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function confirmPayment(id) {
+      if (!confirm('Confirmar pagamento manualmente?')) return;
+      await fetch(`/api/admin/guests/${id}/confirm`, {
+        method: 'POST',
+        headers: { 'x-admin-password': adminPwd },
+      });
+      loadGuests();
+    }
+
+    async function deleteGuest(id, nome) {
+      if (!confirm(`Remover ${nome}? Esta ação não pode ser desfeita.`)) return;
+      await fetch(`/api/admin/guests/${id}`, {
+        method: 'DELETE',
+        headers: { 'x-admin-password': adminPwd },
+      });
+      loadGuests();
+    }
+
+    // ---- CONFIG ----
+    function loadConfig(event) {
+      if (!event) return;
+      document.getElementById('cfg-nome').value = event.nome || '';
+      document.getElementById('cfg-data').value = event.data || '';
+      document.getElementById('cfg-local').value = event.local || '';
+      document.getElementById('cfg-preco').value = event.preco || '';
+    }
+
+    async function saveConfig() {
+      const body = {
+        nome: document.getElementById('cfg-nome').value,
+        data: document.getElementById('cfg-data').value,
+        local: document.getElementById('cfg-local').value,
+        preco: parseFloat(document.getElementById('cfg-preco').value),
+        banner_url: '',
+      };
+      const newPwd = document.getElementById('cfg-pwd').value;
+      if (newPwd) body.admin_password = newPwd;
+
+      const r = await fetch('/api/admin/event', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPwd },
+        body: JSON.stringify(body),
+      });
+
+      if (r.ok) {
+        if (newPwd) adminPwd = newPwd;
+        document.getElementById('cfg-pwd').value = '';
+        const msg = document.getElementById('save-msg');
+        msg.style.display = 'block';
+        setTimeout(() => msg.style.display = 'none', 3000);
+        loadGuests();
+      }
+    }
+
+    // ---- EXPORT ----
+    function exportCSV() {
+      window.location.href = `/api/admin/export?password=${encodeURIComponent(adminPwd)}`;
+    }
+
+    // ---- HELPERS ----
+    function formatCPF(c) {
+      if (!c) return '—';
+      c = c.replace(/\D/g, '');
+      return c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    }
+
+    function fmtDate(d) {
+      if (!d) return '—';
+      try {
+        return new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+      } catch { return d; }
+    }
+  </script>
+</body>
+</html>

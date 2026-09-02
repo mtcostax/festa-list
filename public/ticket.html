@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seu Bilhete</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #7c3aed;
+      --primary-light: #8b5cf6;
+      --accent: #f59e0b;
+      --bg: #0f0f1a;
+      --surface: #1a1a2e;
+      --surface2: #222240;
+      --text: #f1f1f8;
+      --text-muted: #9ca3af;
+      --border: #2d2d50;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --radius: 16px;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px 64px;
+    }
+
+    /* LOADING */
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      min-height: 60vh;
+    }
+    .loading .ring {
+      width: 52px; height: 52px;
+      border: 3px solid var(--border);
+      border-top-color: var(--primary-light);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading p { color: var(--text-muted); font-size: 15px; }
+
+    /* ESTADO NÃO PAGO */
+    .pending-state {
+      max-width: 420px;
+      text-align: center;
+      margin-top: 60px;
+      display: none;
+    }
+    .pending-state .icon { font-size: 64px; margin-bottom: 20px; }
+    .pending-state h2 { font-size: 22px; margin-bottom: 10px; }
+    .pending-state p { color: var(--text-muted); font-size: 15px; line-height: 1.6; }
+    .btn-back {
+      display: inline-block;
+      margin-top: 24px;
+      padding: 12px 28px;
+      background: var(--primary);
+      color: #fff;
+      border-radius: 10px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    /* BILHETE */
+    .ticket-wrapper {
+      width: 100%;
+      max-width: 420px;
+      display: none;
+    }
+
+    .congrats {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .congrats .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(16,185,129,.15);
+      border: 1px solid rgba(16,185,129,.35);
+      color: #6ee7b7;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 8px 18px;
+      border-radius: 100px;
+      margin-bottom: 16px;
+    }
+    .congrats h1 { font-size: 26px; font-weight: 800; }
+    .congrats p { color: var(--text-muted); font-size: 14px; margin-top: 6px; }
+
+    /* CARD DO BILHETE */
+    .ticket-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,.5);
+      position: relative;
+    }
+
+    /* Topo do bilhete */
+    .ticket-header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, var(--primary-dark, #4c1d95) 100%);
+      padding: 28px 28px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .ticket-header::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 80% 0%, rgba(124,58,237,.4) 0%, transparent 60%);
+    }
+    .ticket-header-content { position: relative; z-index: 1; }
+    .ticket-header .event-label {
+      font-size: 10px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: #c4b5fd;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .ticket-header h2 {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      line-height: 1.2;
+    }
+    .ticket-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .ticket-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: #d1d5db;
+    }
+    .ticket-meta-item svg { opacity: .7; flex-shrink: 0; }
+
+    /* Divider dentado */
+    .ticket-divider {
+      display: flex;
+      align-items: center;
+      background: var(--bg);
+    }
+    .notch {
+      width: 24px; height: 24px;
+      background: var(--bg);
+      flex-shrink: 0;
+    }
+    .notch.left { border-radius: 0 100px 100px 0; }
+    .notch.right { border-radius: 100px 0 0 100px; }
+    .divider-line {
+      flex: 1;
+      border-top: 2px dashed var(--border);
+    }
+
+    /* Corpo do bilhete */
+    .ticket-body {
+      padding: 24px 28px 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .guest-info {
+      width: 100%;
+      background: var(--surface2);
+      border-radius: 12px;
+      padding: 16px 18px;
+    }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; flex-shrink: 0; }
+    .info-value { font-size: 14px; font-weight: 600; text-align: right; word-break: break-all; }
+
+    /* QR CODE */
+    .qr-container {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .qr-container img { width: 200px; height: 200px; display: block; }
+    .qr-label { font-size: 11px; color: #6b7280; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; }
+
+    /* Status badge */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .5px;
+    }
+    .status-badge.paid { background: rgba(16,185,129,.15); border: 1px solid rgba(16,185,129,.3); color: #6ee7b7; }
+    .status-badge.entered { background: rgba(124,58,237,.15); border: 1px solid rgba(124,58,237,.3); color: #c4b5fd; }
+    .status-badge.pending { background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.3); color: #fcd34d; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; }
+    .paid .status-dot { background: #10b981; }
+    .entered .status-dot { background: #8b5cf6; }
+    .pending .status-dot { background: #f59e0b; animation: pulse 1.5s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .4; }
+    }
+
+    /* Ticket ID */
+    .ticket-id {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 1.5px;
+      font-family: monospace;
+      margin-top: 4px;
+    }
+
+    /* Aviso de pendente */
+    .pending-notice {
+      width: 100%;
+      background: rgba(245,158,11,.1);
+      border: 1px solid rgba(245,158,11,.25);
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 13px;
+      color: #fcd34d;
+      text-align: center;
+      line-height: 1.5;
+      display: none;
+    }
+
+    /* Ações */
+    .ticket-actions {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+      margin-top: 4px;
+    }
+    .btn {
+      flex: 1;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      transition: opacity .15s;
+    }
+    .btn:hover { opacity: .85; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-outline { background: transparent; border: 1.5px solid var(--border); color: var(--text); }
+
+    /* Info de como usar */
+    .how-to {
+      width: 100%;
+      max-width: 420px;
+      margin-top: 24px;
+    }
+    .how-to h3 { font-size: 14px; color: var(--text-muted); margin-bottom: 12px; }
+    .steps { display: flex; flex-direction: column; gap: 10px; }
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .step-num {
+      width: 24px; height: 24px;
+      background: rgba(124,58,237,.25);
+      color: #c4b5fd;
+      border-radius: 50%;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .step-text { font-size: 13px; line-height: 1.5; color: #d1d5db; }
+  </style>
+</head>
+<body>
+
+  <!-- LOADING -->
+  <div class="loading" id="loading">
+    <div class="ring"></div>
+    <p>Carregando seu bilhete…</p>
+  </div>
+
+  <!-- ESTADO PENDENTE / ERRO -->
+  <div class="pending-state" id="pending-state">
+    <div class="icon">⏳</div>
+    <h2>Aguardando confirmação</h2>
+    <p id="pending-msg">Seu pagamento ainda não foi confirmado. Assim que aprovado, este bilhete será ativado automaticamente.</p>
+    <a href="/" class="btn-back">Voltar para inscrição</a>
+    <br><br>
+    <button onclick="loadTicket()" style="background:none;border:none;color:var(--primary-light);cursor:pointer;font-size:14px;">
+      🔄 Verificar novamente
+    </button>
+  </div>
+
+  <!-- BILHETE -->
+  <div class="ticket-wrapper" id="ticket-wrapper">
+    <div class="congrats">
+      <div class="badge">✅ Presença confirmada</div>
+      <h1>Seu bilhete está pronto!</h1>
+      <p>Apresente o QR Code abaixo na entrada do evento.</p>
+    </div>
+
+    <div class="ticket-card" id="ticket-card">
+      <!-- HEADER -->
+      <div class="ticket-header">
+        <div class="ticket-header-content">
+          <div class="event-label">🎉 Ingresso</div>
+          <h2 id="ev-nome">—</h2>
+          <div class="ticket-meta" id="ev-meta"></div>
+        </div>
+      </div>
+
+      <!-- DIVIDER -->
+      <div class="ticket-divider">
+        <div class="notch left"></div>
+        <div class="divider-line"></div>
+        <div class="notch right"></div>
+      </div>
+
+      <!-- BODY -->
+      <div class="ticket-body">
+        <!-- Guest info -->
+        <div class="guest-info">
+          <div class="info-row">
+            <span class="info-label">Nome</span>
+            <span class="info-value" id="g-nome">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">CPF</span>
+            <span class="info-value" id="g-cpf">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">RG</span>
+            <span class="info-value" id="g-rg">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Status</span>
+            <span id="g-status">—</span>
+          </div>
+        </div>
+
+        <!-- Aviso pendente -->
+        <div class="pending-notice" id="pending-notice">
+          ⏳ Aguardando confirmação do pagamento. O QR Code ficará disponível quando o pagamento for aprovado.
+        </div>
+
+        <!-- QR Code -->
+        <div class="qr-container" id="qr-container">
+          <img id="qr-img" src="" alt="QR Code" />
+          <div class="qr-label">Scan na portaria</div>
+        </div>
+
+        <div class="ticket-id" id="ticket-id"></div>
+
+        <!-- Ações -->
+        <div class="ticket-actions">
+          <button class="btn btn-outline" onclick="window.print()">🖨️ Imprimir</button>
+          <button class="btn btn-primary" onclick="compartilhar()">📤 Compartilhar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- INSTRUÇÕES -->
+    <div class="how-to">
+      <h3>Como usar seu bilhete</h3>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-text">Salve esta página ou tire um print do QR Code.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-text">Na entrada do evento, apresente este bilhete para a portaria.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-text">A portaria vai escanear o QR Code e liberar sua entrada. 🎉</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const token = new URLSearchParams(window.location.search).get('token');
+
+    function formatCPF(c) {
+      if (!c) return '—';
+      c = c.replace(/\D/g, '');
+      return c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    }
+
+    function statusBadge(s) {
+      const map = {
+        paid: '<span class="status-badge paid"><span class="status-dot"></span>Pago ✓</span>',
+        entered: '<span class="status-badge entered"><span class="status-dot"></span>Entrou ✓</span>',
+        pending: '<span class="status-badge pending"><span class="status-dot"></span>Pendente</span>',
+      };
+      return map[s] || s;
+    }
+
+    async function loadTicket() {
+      if (!token) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('pending-state').style.display = 'block';
+        document.getElementById('pending-msg').textContent = 'Link inválido. Verifique o link recebido.';
+        return;
+      }
+
+      try {
+        const r = await fetch(`/api/ticket/${token}`);
+        const data = await r.json();
+        document.getElementById('loading').style.display = 'none';
+
+        if (!r.ok) {
+          document.getElementById('pending-state').style.display = 'block';
+          document.getElementById('pending-msg').textContent = data.error || 'Bilhete não encontrado.';
+          return;
+        }
+
+        const { guest, event, qrCode } = data;
+
+        // Se pendente, mostra aviso em vez do ticket completo
+        if (guest.status === 'pending') {
+          document.getElementById('ticket-wrapper').style.display = 'flex';
+          document.getElementById('ticket-wrapper').style.flexDirection = 'column';
+          document.getElementById('ticket-wrapper').style.alignItems = 'center';
+
+          // Mostra card sem QR
+          document.getElementById('ev-nome').textContent = event.nome;
+          populateEventMeta(event);
+          document.getElementById('g-nome').textContent = guest.nome;
+          document.getElementById('g-cpf').textContent = formatCPF(guest.cpf);
+          document.getElementById('g-rg').textContent = guest.rg;
+          document.getElementById('g-status').innerHTML = statusBadge(guest.status);
+          document.getElementById('pending-notice').style.display = 'block';
+          document.getElementById('qr-container').style.display = 'none';
+          document.getElementById('ticket-id').textContent = `ID: ${token.split('-')[0].toUpperCase()}`;
+          document.querySelector('.congrats h1').textContent = 'Aguardando pagamento…';
+          document.querySelector('.congrats p').textContent = 'O QR Code aparecerá aqui após a confirmação do pagamento.';
+          document.querySelector('.congrats .badge').textContent = '⏳ Pagamento pendente';
+          document.querySelector('.congrats .badge').style.background = 'rgba(245,158,11,.15)';
+          document.querySelector('.congrats .badge').style.borderColor = 'rgba(245,158,11,.3)';
+          document.querySelector('.congrats .badge').style.color = '#fcd34d';
+          return;
+        }
+
+        // Bilhete válido
+        document.getElementById('ticket-wrapper').style.display = 'flex';
+        document.getElementById('ticket-wrapper').style.flexDirection = 'column';
+        document.getElementById('ticket-wrapper').style.alignItems = 'center';
+
+        document.title = `Bilhete — ${event.nome}`;
+        document.getElementById('ev-nome').textContent = event.nome;
+        populateEventMeta(event);
+        document.getElementById('g-nome').textContent = guest.nome;
+        document.getElementById('g-cpf').textContent = formatCPF(guest.cpf);
+        document.getElementById('g-rg').textContent = guest.rg;
+        document.getElementById('g-status').innerHTML = statusBadge(guest.status);
+        document.getElementById('qr-img').src = qrCode;
+        document.getElementById('ticket-id').textContent = `ID: ${token.split('-')[0].toUpperCase()}`;
+
+        if (guest.status === 'entered') {
+          document.querySelector('.congrats .badge').textContent = '🚪 Entrada utilizada';
+        }
+      } catch (err) {
+        console.error(err);
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('pending-state').style.display = 'block';
+        document.getElementById('pending-msg').textContent = 'Erro ao carregar bilhete. Tente novamente.';
+      }
+    }
+
+    function populateEventMeta(event) {
+      const meta = document.getElementById('ev-meta');
+      if (event.data) {
+        const d = new Date(event.data + 'T00:00:00');
+        meta.innerHTML += `<div class="ticket-meta-item">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          ${d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+        </div>`;
+      }
+      if (event.local) {
+        meta.innerHTML += `<div class="ticket-meta-item">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+          </svg>
+          ${event.local}
+        </div>`;
+      }
+    }
+
+    function compartilhar() {
+      if (navigator.share) {
+        navigator.share({ title: 'Meu Bilhete', url: window.location.href });
+      } else {
+        navigator.clipboard.writeText(window.location.href);
+        alert('Link copiado!');
+      }
+    }
+
+    loadTicket();
+  </script>
+</body>
+</html>
