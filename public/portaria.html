@@ -404,7 +404,7 @@
 
       // Token via hash (quando QR abre a URL diretamente)
       const hash = window.location.hash.replace('#', '');
-      if (hash && hash.length > 8) {
+      if (hash && hash.length >= 6) {
         setTimeout(() => validateToken(hash), 500);
         window.history.replaceState(null, '', window.location.pathname);
       }
@@ -459,14 +459,14 @@
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const code = jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: 'dontInvert',
+          inversionAttempts: 'attemptBoth',
         });
 
         if (code && code.data) {
           const now = Date.now();
           // Extrai token da URL ou usa diretamente
           let token = extractToken(code.data);
-          if (token && token !== lastToken || now - lastScanTime > SCAN_COOLDOWN) {
+          if (token && (token !== lastToken || now - lastScanTime > SCAN_COOLDOWN) {
             lastToken = token;
             lastScanTime = now;
             validateToken(token);
@@ -482,7 +482,7 @@
       try {
         const url = new URL(data);
         const hash = url.hash.replace('#', '');
-        if (hash.length > 8) return hash;
+        if (hash.length >= 6) return hash;
         const parts = url.pathname.split('/');
         return parts[parts.length - 1];
       } catch {
