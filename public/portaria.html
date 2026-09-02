@@ -466,7 +466,7 @@
           const now = Date.now();
           // Extrai token da URL ou usa diretamente
           let token = extractToken(code.data);
-          if (token && (token !== lastToken || now - lastScanTime > SCAN_COOLDOWN) {
+          if (token && (token !== lastToken || now - lastScanTime > SCAN_COOLDOWN)) {
             lastToken = token;
             lastScanTime = now;
             validateToken(token);
