@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
-const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
+const Stripe = require('stripe');
 const QRCode = require('qrcode');
 const crypto = require('crypto');
 const path = require('path');
@@ -11,9 +11,9 @@ const app = express();
 // ============================================================
 // BANCO DE DADOS
 // ============================================================
-const db = new sqlite3.Database('./database.db');
+const DB_PATH = process.env.DB_PATH || './database.db';
+const db = new sqlite3.Database(DB_PATH);
 
-// Helpers para usar Promises com sqlite3
 function dbRun(sql, params = []) {
   return new Promise((resolve, reject) => {
     db.run(sql, params, function (err) {
@@ -67,7 +67,6 @@ db.serialize(() => {
       entered_at DATETIME
     )
   `);
-  // Config inicial do evento (se não existir)
   db.get('SELECT id FROM event_config WHERE id = 1', [], (err, row) => {
     if (!row) {
       db.run(
@@ -86,15 +85,54 @@ db.serialize(() => {
 });
 
 // ============================================================
-// MERCADO PAGO
+// STRIPE
 // ============================================================
-const mpClient = new MercadoPagoConfig({
-  accessToken: process.env.MP_ACCESS_TOKEN || 'TEST-0000',
-});
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder');
 
 // ============================================================
 // MIDDLEWARE
 // ============================================================
+// Webhook precisa do raw body — registrar ANTES do express.json()
+app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  try {
+    let event;
+    const sig = req.headers['stripe-signature'];
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    if (webhookSecret && sig) {
+      try {
+        event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+      } catch (err) {
+        console.error('[Webhook] Assinatura inválida:', err.message);
+        return res.sendStatus(400);
+      }
+    } else {
+      // Sem verificação de assinatura (modo desenvolvimento)
+      event = JSON.parse(req.body.toString());
+    }
+
+    console.log(`[Webhook] Evento: ${event.type}`);
+
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      const token = session.client_reference_id;
+      if (token && session.payment_status === 'paid') {
+        await dbRun(
+          `UPDATE guests SET status = 'paid', mp_payment_id = ?, paid_at = CURRENT_TIMESTAMP
+           WHERE token = ? AND status = 'pending'`,
+          [session.payment_intent || session.id, token]
+        );
+        console.log(`[Webhook] Pagamento aprovado para token: ${token}`);
+      }
+    }
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.error('Erro no webhook:', err?.message || err);
+    res.sendStatus(200);
+  }
+});
+
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -149,77 +187,45 @@ app.post('/api/register', async (req, res) => {
     const token = crypto.randomUUID();
     const baseUrl = (process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`).replace(/\/$/, '');
 
-    // Cria preferência no Mercado Pago
-    const preference = new Preference(mpClient);
-    const prefResult = await preference.create({
-      body: {
-        items: [
-          {
-            id: 'ingresso-01',
-            title: `Ingresso — ${event.nome}`,
-            quantity: 1,
-            unit_price: parseFloat(event.preco),
-            currency_id: 'BRL',
+    // Cria sessão de checkout no Stripe
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: 'brl',
+            product_data: {
+              name: `Ingresso — ${event.nome}`,
+            },
+            unit_amount: Math.round(parseFloat(event.preco) * 100), // em centavos
           },
-        ],
-        payer: { name: nome.trim() },
-        external_reference: token,
-        back_urls: {
-          success: `${baseUrl}/ticket.html?token=${token}`,
-          failure: `${baseUrl}/?erro=pagamento_cancelado`,
-          pending: `${baseUrl}/ticket.html?token=${token}`,
+          quantity: 1,
         },
-        auto_return: 'approved',
-        notification_url: `${baseUrl}/api/webhook`,
-        statement_descriptor: event.nome.substring(0, 22),
-      },
+      ],
+      mode: 'payment',
+      client_reference_id: token,
+      success_url: `${baseUrl}/ticket.html?token=${token}`,
+      cancel_url: `${baseUrl}/?erro=pagamento_cancelado`,
     });
 
     if (existing) {
       await dbRun(
         `UPDATE guests SET nome = ?, rg = ?, token = ?, mp_preference_id = ?, status = 'pending' WHERE cpf = ?`,
-        [nome.trim(), rg.trim(), token, prefResult.id, cpfClean]
+        [nome.trim(), rg.trim(), token, session.id, cpfClean]
       );
     } else {
       await dbRun(
         `INSERT INTO guests (nome, cpf, rg, token, mp_preference_id) VALUES (?, ?, ?, ?, ?)`,
-        [nome.trim(), cpfClean, rg.trim(), token, prefResult.id]
+        [nome.trim(), cpfClean, rg.trim(), token, session.id]
       );
     }
 
     res.json({
-      payment_url: prefResult.init_point,
-      sandbox_url: prefResult.sandbox_init_point,
+      payment_url: session.url,
     });
   } catch (err) {
     console.error('Erro no registro:', err?.message || err);
     res.status(500).json({ error: 'Erro ao processar inscrição. Tente novamente.' });
-  }
-});
-
-// --- WEBHOOK MERCADO PAGO ---
-app.post('/api/webhook', async (req, res) => {
-  try {
-    const { type, data } = req.body;
-
-    if (type === 'payment' && data?.id) {
-      const payment = new Payment(mpClient);
-      const paymentData = await payment.get({ id: data.id });
-      console.log(`[Webhook] Pagamento ${data.id} — status: ${paymentData.status}`);
-
-      if (paymentData.status === 'approved') {
-        const token = paymentData.external_reference;
-        await dbRun(
-          `UPDATE guests SET status = 'paid', mp_payment_id = ?, paid_at = CURRENT_TIMESTAMP
-           WHERE token = ? AND status = 'pending'`,
-          [String(data.id), token]
-        );
-      }
-    }
-    res.sendStatus(200);
-  } catch (err) {
-    console.error('Erro no webhook:', err?.message || err);
-    res.sendStatus(200);
   }
 });
 
@@ -324,7 +330,6 @@ async function checkAdminAuth(req, res) {
   return true;
 }
 
-// Lista todos os convidados
 app.get('/api/admin/guests', async (req, res) => {
   if (!(await checkAdminAuth(req, res))) return;
 
@@ -342,7 +347,6 @@ app.get('/api/admin/guests', async (req, res) => {
   res.json({ guests, stats, event: await getEvent() });
 });
 
-// Atualiza evento
 app.put('/api/admin/event', async (req, res) => {
   if (!(await checkAdminAuth(req, res))) return;
   const { nome, data, local, preco, banner_url, admin_password } = req.body;
@@ -361,7 +365,6 @@ app.put('/api/admin/event', async (req, res) => {
   res.json({ success: true });
 });
 
-// Exporta CSV
 app.get('/api/admin/export', async (req, res) => {
   if (!(await checkAdminAuth(req, res))) return;
 
@@ -381,14 +384,12 @@ app.get('/api/admin/export', async (req, res) => {
   res.send('﻿' + csv);
 });
 
-// Remove convidado
 app.delete('/api/admin/guests/:id', async (req, res) => {
   if (!(await checkAdminAuth(req, res))) return;
   await dbRun('DELETE FROM guests WHERE id = ?', [req.params.id]);
   res.json({ success: true });
 });
 
-// Confirma pagamento manualmente
 app.post('/api/admin/guests/:id/confirm', async (req, res) => {
   if (!(await checkAdminAuth(req, res))) return;
   await dbRun(
