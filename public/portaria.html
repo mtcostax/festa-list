@@ -364,7 +364,7 @@
     // ---- LOGIN ----
     async function doLogin() {
       const pwd = document.getElementById('pwd-input').value;
-      if (!pwd) return;
+      if (!pwd) { alert("Campo senha vazio!"); return; }
 
       try {
         const r = await fetch(`/api/admin/guests?password=${encodeURIComponent(pwd)}`);
